@@ -71,6 +71,9 @@ h1, h2, h3 { font-family: var(--serif); line-height: 1.3; }
 .lg-tour { background: var(--jade); border-radius: 50%; }
 .lg-her { background: #ffcf5a; }
 
+.label-layer { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+.marker-tip { position: fixed; z-index: 40; pointer-events: none; }
+.label-layer .beacon-tag { position: absolute; left: 0; top: 0; display: none; will-change: transform; }
 .beacon-tag { padding: 3px 10px; border-radius: 999px; background: rgba(5, 10, 20, 0.7); border: 1px solid var(--line); font-size: 12px; white-space: nowrap; color: #dfe6f5; }
 .beacon-tag.on { border-color: var(--gold); color: #fff; background: rgba(60, 40, 8, 0.8); }
 .beacon-tag.done { color: var(--gold); }

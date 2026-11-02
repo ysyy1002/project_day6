@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Html, OrbitControls, Sparkles, Stars } from '@react-three/drei'
+import { OrbitControls, Sparkles, Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { MYTHS, MYTH_BY_ID } from '../data/myths'
 import { buildTerrainGeometry, surfaceY, toWorld } from '../lib/terrain'
@@ -78,11 +78,52 @@ function Beacon({ site, selected, discovered, focused, onSelect }) {
         <sphereGeometry args={[0.8, 12, 12]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      <Html position={[0, 2.1, 0]} center distanceFactor={15} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-        <div className={`beacon-tag${selected ? ' on' : ''}${discovered ? ' done' : ''}`}>{site.name}</div>
-      </Html>
     </group>
   )
+}
+
+// 이름표 위치 계산: 이름표 9개는 캔버스 바깥의 일반 HTML(Scene 아래 label-layer)이고,
+// 여기서는 매 프레임 각 장소의 화면 좌표를 구해 그 HTML 의 위치만 옮긴다.
+// 화면에서 서로 겹치면 위로 밀어 올려 모두 읽히게 한다 (삼성혈·용두암·백록담은 기본 시점에서 같은 자리에 겹친다).
+// ※ drei 의 <Html> 은 React 19 에서 root 해제 오류가 나고 이름표가 빠지는 문제가 있어 쓰지 않는다.
+function LabelPositioner({ labelEls, selectedId }) {
+  const { camera, size } = useThree()
+  const els = labelEls
+  const v = useMemo(() => new THREE.Vector3(), [])
+  const anchors = useMemo(
+    () => MYTHS.map((m) => {
+      const [x, z] = toWorld(m.lat, m.lng)
+      return { id: m.id, p: new THREE.Vector3(x, surfaceY(x, z) + 2.2, z) }
+    }),
+    [],
+  )
+  useFrame(() => {
+    const items = anchors.map((a) => {
+      v.copy(a.p).project(camera)
+      return { id: a.id, x: (v.x * 0.5 + 0.5) * size.width, y: (-v.y * 0.5 + 0.5) * size.height, depth: v.z, front: v.z < 1 }
+    })
+    // 선택한 장소가 가장 먼저, 그다음은 카메라에 가까운 순으로 자리를 잡는다
+    items.sort((a, b) => (b.id === selectedId) - (a.id === selectedId) || a.depth - b.depth)
+    const placed = []
+    for (const it of items) {
+      const el = els.current[it.id]
+      if (!el) continue
+      el.style.display = it.front ? 'block' : 'none'
+      if (!it.front) continue
+      const w = el.offsetWidth
+      const h = el.offsetHeight
+      const x = it.x - w / 2
+      let y = it.y - h
+      for (let k = 0; k < 10; k++) {
+        const hit = placed.find((r) => x < r.x + r.w + 4 && x + w + 4 > r.x && y < r.y + r.h + 3 && y + h + 3 > r.y)
+        if (!hit) break
+        y = hit.y - h - 3 // 겹치면 이미 놓인 이름표 위로 올린다
+      }
+      placed.push({ x, y, w, h })
+      el.style.transform = `translate(${x}px, ${y}px)`
+    }
+  })
+  return null
 }
 
 // 비가 오면 선택한 장소 위에 빗줄기가 내린다 (기상청 API → 3D)
@@ -118,23 +159,24 @@ function Rain({ at }) {
 }
 
 // 주변 명소(TourAPI, 청록 구슬)·국가유산(국가유산청 API, 금빛 상자)
-function Markers({ items }) {
-  const [hover, setHover] = useState(null)
+function Markers({ items, onHover }) {
   return items.map((m) => {
     const [x, z] = toWorld(m.lat, m.lng)
     const y = surfaceY(x, z) + 0.18
     const c = m.kind === 'tour' ? '#5fe3d0' : '#ffcf5a'
     return (
       <group key={`${m.kind}-${m.id}`} position={[x, y, z]}>
-        <mesh onPointerOver={(e) => { e.stopPropagation(); setHover(m.id) }} onPointerOut={() => setHover(null)}>
+        <mesh
+          onPointerOver={(e) => {
+            e.stopPropagation()
+            const ev = e.nativeEvent ?? e
+            onHover({ title: m.title, x: ev.clientX, y: ev.clientY })
+          }}
+          onPointerOut={() => onHover(null)}
+        >
           {m.kind === 'tour' ? <sphereGeometry args={[0.13, 12, 12]} /> : <boxGeometry args={[0.22, 0.22, 0.22]} />}
           <meshStandardMaterial color={c} emissive={c} emissiveIntensity={1.4} toneMapped={false} />
         </mesh>
-        {hover === m.id && (
-          <Html position={[0, 0.4, 0]} center distanceFactor={12} style={{ pointerEvents: 'none' }}>
-            <div className="marker-tag">{m.title}</div>
-          </Html>
-        )}
       </group>
     )
   })
@@ -178,8 +220,11 @@ export default function Scene({ selectedId, onSelect, discovered, focus, weather
     return [x, surfaceY(x, z), z]
   }, [site])
   const raining = weather?.some((w) => w.rain !== '없음')
+  const labelEls = useRef({})            // 이름표 HTML 요소들 (LabelPositioner 가 위치를 옮긴다)
+  const [tip, setTip] = useState(null)   // 주변 명소·유산 마커 위에 마우스를 올렸을 때의 이름
 
   return (
+    <>
     <Canvas camera={{ position: OVERVIEW.cam.toArray(), fov: 45 }} dpr={[1, 2]} onPointerMissed={() => onSelect(null)}>
       <color attach="background" args={['#050a14']} />
       <fog attach="fog" args={['#050a14', 48, 110]} />
@@ -201,10 +246,24 @@ export default function Scene({ selectedId, onSelect, discovered, focus, weather
           onSelect={onSelect}
         />
       ))}
-      <Markers items={nearby} />
+      <Markers items={nearby} onHover={setTip} />
+      <LabelPositioner labelEls={labelEls} selectedId={selectedId} />
       {raining && sitePos && <Rain at={sitePos} />}
       <OrbitControls ref={controls} makeDefault enableDamping dampingFactor={0.08} minDistance={4} maxDistance={44} maxPolarAngle={Math.PI * 0.47} />
       <CameraRig selectedId={selectedId} controls={controls} />
     </Canvas>
+    <div className="label-layer">
+      {MYTHS.map((m) => (
+        <div
+          key={m.id}
+          ref={(el) => { labelEls.current[m.id] = el }}
+          className={`beacon-tag${m.id === selectedId ? ' on' : ''}${discovered.includes(m.id) ? ' done' : ''}`}
+        >
+          {m.name}
+        </div>
+      ))}
+    </div>
+    {tip && <div className="marker-tag marker-tip" style={{ left: tip.x + 12, top: tip.y + 12 }}>{tip.title}</div>}
+    </>
   )
 }
