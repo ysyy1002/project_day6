@@ -136,16 +136,28 @@ sequenceDiagram
 
 ### 🧪 에이전트 테스트 결과
 
-> ⏳ **측정 예정** — Claude API 키 적용 후 아래 4개 질문으로 테스트하고 캡처를 채웁니다.
+실제 Claude와 공공데이터 API를 호출한 결과입니다 (로컬 `npm run dev`). 호출한 도구 목록은 답변 위에 그대로 표시됩니다.
 
-| # | 질문 | 기대 동작 | 결과 |
+| # | 질문 | 기대 동작 | 실제 결과 |
 |---|---|---|---|
-| 1 | "제주시 지금 날씨 어때?" | `get_weather` 1회 호출 | ⏳ |
-| 2 | "관덕정이 어떤 국가유산이야?" | `search_heritage` 호출 | ⏳ |
-| 3 | "영등할망이 오는 포구 근처에서 비 오면 갈 만한 곳은?" | `get_myth_lore` → `get_weather` → `search_tour_places` 연속 호출 | ⏳ |
-| 4 | "제주에 있는 에펠탑 알려줘" | 지어내지 않고 "결과 없음"이라고 답함 | ⏳ |
+| 1 | "제주시 지금 날씨 어때?" | `get_weather` 1회 | ✅ `get_weather` **1회**(제주시 중심 좌표) → 6건, 기온·하늘·강수확률·풍속을 그대로 전달 |
+| 2 | "관덕정이 어떤 국가유산이야?" | `search_heritage` 호출 | ✅ `search_heritage` 1회 → "제주 관덕정, 보물, 제주시". 결과에 없는 건립 시기 등은 **말하지 않고** 모른다고 답함 |
+| 3 | "영등할망이 오는 포구 근처에서 비 오면 갈 만한 곳 알려줘" | 도구 2개 이상 연속 호출 | ✅ **4회 연속**: `get_myth_lore` → `search_tour_places`(문화시설, 0건) → `get_weather` → `search_tour_places`(10건). 거리(약 150m 등)는 API가 준 값만 인용 |
+| 4 | "제주에 있는 에펠탑 알려줘" | 지어내지 않고 "결과 없음" | ✅ `search_tour_places` 1회 → 0건 → "결과가 없다"고 답하고 다른 이야기를 덧붙이지 않음 |
 
-<!-- 캡처 추가: docs/images/agent-1.png ~ agent-4.png -->
+<table>
+<tr><td><img src="docs/images/agent-1.jpg" alt="질문 1"><br><sub>① 제주시 날씨 — get_weather 1회</sub></td><td><img src="docs/images/agent-2.jpg" alt="질문 2"><br><sub>② 관덕정 — search_heritage</sub></td></tr>
+<tr><td><img src="docs/images/agent-3.jpg" alt="질문 3"><br><sub>③ 영등할망 포구 — 도구 4회 연속 호출</sub></td><td><img src="docs/images/agent-4.jpg" alt="질문 4"><br><sub>④ 에펠탑 — 결과 없음</sub></td></tr>
+</table>
+
+**테스트하며 찾아서 고친 것**
+- 답변에 마크다운 기호(`**`)가 화면에 그대로 찍히던 문제 → 지시문에서 마크다운 금지
+- "제주시 날씨"에 삼성혈 좌표를 쓰던 문제 → 도시 이름은 도시 중심 좌표로 한 번만 조회하도록 지시
+- 에펠탑 질문에서 도구로 확인하지 않은 신화 줄거리(산방산·용두암)를 기억으로 덧붙여 **틀리게** 말하던 문제 → 확인하지 않은 줄거리·거리·시간은 덧붙이지 않도록 지시
+
+**대화 저장 확인**: 질문을 보내면 질문과 답변이 Supabase `chat_messages`에 저장되고(답변 행에 호출한 도구 목록 `steps` 포함), 페이지를 새로 불러와도 같은 대화가 복원됩니다.
+
+> **배포본(`projectday6.vercel.app`)에서도 확인했습니다.** "제주시 지금 날씨 어때?"는 `get_weather` 1회, "제주에 있는 에펠탑 알려줘"는 `search_tour_places`로 두 번 검색해 모두 0건이라 "찾지 못했다"고 답했습니다.
 
 ## 🧊 3D 지도 구현
 
