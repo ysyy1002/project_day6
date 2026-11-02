@@ -36,7 +36,7 @@ export default function Oracle() {
   return (
     <main className="page narrow">
       <PageHeader eyebrow="AI 에이전트" title="할망에게 묻기"
-        subtitle="할망은 질문에 맞는 공공데이터 API를 스스로 골라 호출하고, 그 결과로 답해요. 어떤 도구를 불렀는지 답 위에 그대로 보여줍니다." />
+        subtitle="할망은 질문에 맞는 공공데이터 API를 스스로 골라 호출하고, 그 결과로 답해요. 어떤 도구를 불렀는지 답 위에 그대로 보여주고, 대화는 닉네임별로 저장돼 다시 열어도 이어집니다." />
 
       <div className="chat">
         {messages.length === 0 && (
@@ -75,7 +75,12 @@ export default function Oracle() {
         <InputGroup>
           <Form.Control value={input} onChange={(e) => setInput(e.target.value)} placeholder="신화와 날씨, 명소를 함께 물어보세요" />
           <Button type="submit" disabled={loading}><i className="bi bi-send" /></Button>
-          {messages.length > 0 && <Button variant="outline-light" onClick={clearChat} title="대화 비우기"><i className="bi bi-trash" /></Button>}
+          {messages.length > 0 && (
+            <Button variant="outline-light" title="저장된 대화 지우기"
+              onClick={() => window.confirm('이 닉네임의 저장된 대화를 모두 지울까요?') && clearChat()}>
+              <i className="bi bi-trash" />
+            </Button>
+          )}
         </InputGroup>
       </Form>
     </main>

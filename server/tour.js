@@ -31,6 +31,10 @@ export async function searchTour({ keyword = '', contentTypeId = '', lat, lng, r
   try { data = JSON.parse(text) }
   catch { throw new Error('TourAPI 응답이 JSON이 아님(키 승인 전이거나 Encoding 키): ' + text.slice(0, 100)) }
 
+  // 호출 한도 초과·키 오류는 "결과 없음"이 아니라 오류로 알린다 (resultCode '0000' 이 정상)
+  const header = data?.response?.header
+  if (header && header.resultCode !== '0000') throw new Error(`TourAPI 오류 ${header.resultCode}: ${header.resultMsg}`)
+
   const item = data?.response?.body?.items?.item
   const list = !item ? [] : Array.isArray(item) ? item : [item]
   return list.map((p) => ({

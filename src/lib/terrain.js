@@ -1,40 +1,82 @@
 import * as THREE from 'three'
+import { MYTHS } from '../data/myths'
+import { COAST_EXTRA } from '../data/coastPoints'
 
 // 위도·경도 → 3D 월드 좌표. 1km = KM 유닛 (제주 동서 73km·남북 31km 비율 유지)
 const KM = 0.5
 const CENTER = { lat: 33.37, lng: 126.56 }
 export const toWorld = (lat, lng) => [(lng - CENTER.lng) * 92.5 * KM, (CENTER.lat - lat) * 111 * KM]
 
-const A = 36.5 * KM // 섬 반장축(동서)
-const B = 15.5 * KM // 섬 반단축(남북)
-const [HX, HZ] = toWorld(33.3617, 126.5292) // 한라산
+// 제주 해안선을 단순화한 윤곽 (위도, 경도) — 시계 방향. 실제 해안선의 근사값입니다.
+const COAST = [
+  [33.296, 126.158], [33.330, 126.164], [33.370, 126.205], [33.394, 126.236], // 고산 → 협재
+  [33.414, 126.262], [33.450, 126.298], [33.468, 126.325], [33.490, 126.385], // 한림 → 귀덕 → 애월
+  [33.506, 126.455], [33.518, 126.510], [33.522, 126.545], [33.533, 126.590], // 도두 → 용두암 → 삼양
+  [33.545, 126.640], [33.553, 126.690], [33.560, 126.740], [33.562, 126.770], // 조천 → 함덕 → 김녕
+  [33.556, 126.815], [33.530, 126.860], [33.495, 126.910], [33.470, 126.955], // 월정 → 세화 → 성산(동쪽 끝)
+  [33.440, 126.945], [33.415, 126.915], [33.370, 126.880], [33.325, 126.835], // 섭지코지 → 표선
+  [33.290, 126.770], [33.270, 126.710], [33.262, 126.650], [33.238, 126.590], // 남원 → 위미 → 보목
+  [33.235, 126.540], [33.240, 126.480], [33.243, 126.420], [33.236, 126.370], // 서귀포 → 중문 → 화순
+  [33.228, 126.315], [33.215, 126.280], [33.200, 126.255], [33.215, 126.215], // 산방산 → 송악산
+  [33.255, 126.175],
+].map(([lat, lng]) => toWorld(lat, lng))
+
+// 신화 장소 둘레는 윤곽이 조금 어긋나도 반드시 땅이 되도록 보장하는 반경 (월드 유닛, ≈ 2.2km)
+const SITE_R = 1.1
+const SITES = MYTHS.map((m) => toWorld(m.lat, m.lng))
+
+// 관광공사 API 장소 중 위 윤곽 바깥에 놓인 58곳 — 둘레 0.4유닛(≈0.8km)을 땅으로 보강해 해안선을 API 위치에 맞춘다
+const EXTRA_R = 0.4
+const EXTRA = COAST_EXTRA.map(([lat, lng]) => toWorld(lat, lng))
+const [HX, HZ] = toWorld(33.3613, 126.5326) // 한라산 백록담
 
 const smooth = (a, b, x) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
   return t * t * (3 - 2 * t)
 }
 
-// 368개 오름 흉내: 시드 고정 의사난수로 작은 봉우리를 흩뿌린다
+// 해안선까지의 부호 있는 거리: 땅 안쪽이면 +, 바다면 −
+function landValue(x, z) {
+  let inside = false
+  let best = Infinity
+  for (let i = 0, j = COAST.length - 1; i < COAST.length; j = i++) {
+    const [xi, zi] = COAST[i]
+    const [xj, zj] = COAST[j]
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside
+    const dx = xj - xi
+    const dz = zj - zi
+    const t = Math.max(0, Math.min(1, ((x - xi) * dx + (z - zi) * dz) / (dx * dx + dz * dz)))
+    best = Math.min(best, Math.hypot(x - (xi + t * dx), z - (zi + t * dz)))
+  }
+  let v = inside ? best : -best
+  for (const [sx, sz] of SITES) v = Math.max(v, SITE_R - Math.hypot(x - sx, z - sz))
+  for (const [ex, ez] of EXTRA) v = Math.max(v, EXTRA_R - Math.hypot(x - ex, z - ez))
+  // 해안선을 울퉁불퉁하게
+  return v + 0.15 * Math.sin(x * 1.3 + z * 0.7) + 0.1 * Math.sin(z * 2.1 - x * 0.9)
+}
+
+// 368개 오름 흉내: 시드 고정 의사난수로 작은 봉우리를 땅 위에 흩뿌린다
 const BUMPS = (() => {
   let s = 20260
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647)
   const out = []
-  while (out.length < 46) {
-    const x = (rnd() * 2 - 1) * A * 0.85
-    const z = (rnd() * 2 - 1) * B * 0.8
-    if ((x / A) ** 2 + (z / B) ** 2 > 0.7) continue
-    out.push({ x, z, h: 0.18 + rnd() * 0.32, s2: 2 * (0.3 + rnd() * 0.3) ** 2 })
+  for (let tries = 0; out.length < 46 && tries < 4000; tries++) {
+    const x = (rnd() * 2 - 1) * 19
+    const z = (rnd() * 2 - 1) * 10
+    const h = 0.18 + rnd() * 0.32
+    const s2 = 2 * (0.3 + rnd() * 0.3) ** 2
+    if (landValue(x, z) < 1.2) continue
+    out.push({ x, z, h, s2 })
   }
   return out
 })()
 
 // (x, z)에서의 지형 높이. 0.2 아래는 바다 속(해수면 = y 0 → 지형 y = h - 0.2)
 export function heightAt(x, z) {
-  let d = Math.hypot(x / A, z / B)
-  d *= 1 + 0.06 * Math.sin(x * 0.8 + z * 0.5) + 0.04 * Math.sin(z * 1.7 - x * 0.3) // 해안선을 울퉁불퉁하게
-  const base = smooth(1.0, 0.5, d) * 0.9
+  const land = landValue(x, z)
+  const base = smooth(-0.64, 1.5, land) * 0.9 // 해안선(land = 0)에서 h ≈ 0.2 → 정확히 해수면
   const r2 = (x - HX) ** 2 + (z - HZ) ** 2
-  const peak = 3.6 * Math.exp(-r2 / (2 * 2.1 ** 2)) * smooth(1.0, 0.7, d)
+  const peak = 3.6 * Math.exp(-r2 / (2 * 2.1 ** 2)) * smooth(0, 1.2, land)
   let bumps = 0
   for (const b of BUMPS) bumps += b.h * Math.exp(-((x - b.x) ** 2 + (z - b.z) ** 2) / b.s2)
   return base + peak + bumps * smooth(0.05, 0.4, base)

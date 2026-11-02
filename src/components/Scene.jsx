@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { MYTHS, MYTH_BY_ID } from '../data/myths'
 import { buildTerrainGeometry, surfaceY, toWorld } from '../lib/terrain'
 
-const OVERVIEW = { target: new THREE.Vector3(0, 0, 0), cam: new THREE.Vector3(0, 13, 21) }
+const OVERVIEW = { target: new THREE.Vector3(0, 0, 0), cam: new THREE.Vector3(0, 17, 28) }
 
 function Terrain() {
   const geo = useMemo(buildTerrainGeometry, [])
@@ -182,7 +182,7 @@ export default function Scene({ selectedId, onSelect, discovered, focus, weather
   return (
     <Canvas camera={{ position: OVERVIEW.cam.toArray(), fov: 45 }} dpr={[1, 2]} onPointerMissed={() => onSelect(null)}>
       <color attach="background" args={['#050a14']} />
-      <fog attach="fog" args={['#050a14', 34, 80]} />
+      <fog attach="fog" args={['#050a14', 48, 110]} />
       <ambientLight intensity={0.55} color="#8fa6d6" />
       <directionalLight position={[-12, 18, -16]} intensity={1.6} color="#d6e4ff" />
       <hemisphereLight args={['#6f8fd8', '#1a2a1c', 0.6]} />
@@ -203,7 +203,7 @@ export default function Scene({ selectedId, onSelect, discovered, focus, weather
       ))}
       <Markers items={nearby} />
       {raining && sitePos && <Rain at={sitePos} />}
-      <OrbitControls ref={controls} makeDefault enableDamping dampingFactor={0.08} minDistance={4} maxDistance={34} maxPolarAngle={Math.PI * 0.47} />
+      <OrbitControls ref={controls} makeDefault enableDamping dampingFactor={0.08} minDistance={4} maxDistance={44} maxPolarAngle={Math.PI * 0.47} />
       <CameraRig selectedId={selectedId} controls={controls} />
     </Canvas>
   )

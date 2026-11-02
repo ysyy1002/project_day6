@@ -8,6 +8,8 @@ import { MYTH_BY_ID } from '../data/myths'
 // 저장 위치: Supabase 가 설정돼 있으면 Supabase(+ localStorage 캐시), 없으면 localStorage 만.
 const who = (get) => get().nickname || '익명'
 const settle = (r) => (r.status === 'fulfilled' ? { ok: true, data: r.value } : { ok: false, error: r.reason.message })
+// 테이블을 아직 만들지 않은 환경(SQL 미실행)에서도 앱이 오류 알림 없이 동작하도록 한다
+const isMissingTable = (e) => e?.code === 'PGRST205' || /schema cache/.test(e?.message ?? '')
 
 export const useAppStore = create(
   persist(
@@ -94,23 +96,45 @@ export const useAppStore = create(
         if (error) get().toast(error.message, 'bad')
       },
 
-      // ⑥ 에이전트 대화 — 페이지를 옮겨도 대화가 남도록 store 에 둔다
+      // ⑥ 에이전트 대화 — 페이지를 옮겨도 남도록 store 에 두고, Supabase chat_messages 에 닉네임별로 저장
       messages: [], // { role, text, steps }
       chatLoading: false,
       focus: [],    // 에이전트가 언급한 신화 장소 → 3D 지도에서 반짝임
+      loadChat: async () => {
+        if (!supabase) return
+        const { data, error } = await supabase.from('chat_messages').select('role, text, steps')
+          .eq('nickname', who(get)).order('id', { ascending: true }).limit(200)
+        if (error) return isMissingTable(error) ? undefined : get().toast(error.message, 'bad')
+        if (get().chatLoading) return // 답을 기다리는 중이면 화면의 대화를 덮어쓰지 않는다
+        set({ messages: data.map((m) => ({ role: m.role, text: m.text, steps: m.steps ?? [] })), focus: [] })
+      },
       sendMessage: async (text) => {
         const history = get().messages.map((m) => ({ role: m.role, content: m.text }))
         set({ messages: [...get().messages, { role: 'user', text }], chatLoading: true })
         try {
           const { answer, steps, focus } = await askAgent(text, history)
           set({ messages: [...get().messages, { role: 'assistant', text: answer, steps }], focus })
+          // 질문과 답변을 한 번에 저장 (한 번의 insert 안에서는 배열 순서대로 id 가 매겨진다)
+          if (supabase) {
+            const rows = [
+              { nickname: who(get), role: 'user', text, steps: null },
+              { nickname: who(get), role: 'assistant', text: answer, steps },
+            ]
+            const { error } = await supabase.from('chat_messages').insert(rows)
+            if (error && !isMissingTable(error)) get().toast(error.message, 'bad')
+          }
         } catch (e) {
           get().toast(e.message, 'bad')
         } finally {
           set({ chatLoading: false })
         }
       },
-      clearChat: () => set({ messages: [], focus: [] }),
+      clearChat: async () => {
+        set({ messages: [], focus: [] })
+        if (!supabase) return
+        const { error } = await supabase.from('chat_messages').delete().eq('nickname', who(get))
+        if (error && !isMissingTable(error)) get().toast(error.message, 'bad')
+      },
     }),
     {
       name: 'shindeul-store',

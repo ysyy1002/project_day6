@@ -9,11 +9,12 @@ export default function RootLayout() {
   const nickname = useAppStore((s) => s.nickname)
   const { pathname } = useLocation()
 
-  // 닉네임이 바뀔 때마다 Supabase 에서 그 사람의 즐겨찾기·도감을 다시 불러온다
+  // 닉네임이 바뀔 때마다 Supabase 에서 그 사람의 즐겨찾기·도감·대화 기록을 다시 불러온다
   useEffect(() => {
-    const { loadFavorites, loadDiscoveries } = useAppStore.getState()
+    const { loadFavorites, loadDiscoveries, loadChat } = useAppStore.getState()
     loadFavorites()
     loadDiscoveries()
+    loadChat()
   }, [nickname])
 
   return (
