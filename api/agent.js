@@ -4,7 +4,7 @@ import { getWeather } from '../server/weather.js'
 import { searchHeritage } from '../server/heritage.js'
 import { MYTHS } from '../src/data/myths.js'
 
-const MODEL = 'claude-sonnet-5-5'
+const MODEL = 'claude-haiku-5-5' // 수업 공지: Claude API 는 haiku 사용 (이전 값: 'claude-sonnet-5-5')
 
 // 신화 데이터(우리가 가진 로컬 지식)도 하나의 "도구"로 노출한다
 function getMythLore({ query = '' } = {}) {
