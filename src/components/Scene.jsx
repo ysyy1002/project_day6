@@ -240,7 +240,6 @@ export default function Scene({ selectedId, onSelect, discovered, weather, nearb
           site={m}
           selected={m.id === selectedId}
           discovered={discovered.includes(m.id)}
-          focused={focus.includes(m.id)}
           onSelect={onSelect}
         />
       ))}
