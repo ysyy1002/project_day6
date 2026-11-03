@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Badge, Button, Form, InputGroup, ListGroup, Spinner } from 'react-bootstrap'
 import PageHeader from '../components/PageHeader'
 import { useAppStore } from '../store/useAppStore'
@@ -19,11 +18,9 @@ const SUGGEST = [
 export default function Oracle() {
   const messages = useAppStore((s) => s.messages)
   const loading = useAppStore((s) => s.chatLoading)
-  const focus = useAppStore((s) => s.focus)
   const { sendMessage, clearChat } = useAppStore.getState()
   const [input, setInput] = useState('')
   const end = useRef(null)
-  const navigate = useNavigate()
 
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
 
@@ -64,12 +61,6 @@ export default function Oracle() {
         {loading && <div className="msg assistant"><p className="muted pulse"><Spinner size="sm" className="me-2" />할망이 도구를 고르는 중…</p></div>}
         <div ref={end} />
       </div>
-
-      {focus.length > 0 && (
-        <Button variant="outline-light" className="mb-2" onClick={() => navigate('/')}>
-          언급된 {focus.length}곳을 3D 지도에서 반짝이게 보기 <i className="bi bi-arrow-right" />
-        </Button>
-      )}
 
       <Form onSubmit={(e) => { e.preventDefault(); submit(input) }}>
         <InputGroup>

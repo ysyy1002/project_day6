@@ -9,7 +9,9 @@ const MODEL = 'claude-haiku-5-5' // 수업 공지: Claude API 는 haiku 사용 (
 // 신화 데이터(우리가 가진 로컬 지식)도 하나의 "도구"로 노출한다
 function getMythLore({ query = '' } = {}) {
   const q = query.trim()
-  const hit = MYTHS.filter((m) => !q || [m.id, m.name, m.deity, m.element, m.story].some((s) => s.includes(q)))
+  // 이름·신·id·원소로 먼저 찾고, 없을 때만 본문에서 찾는다 (본문 검색만 쓰면 다른 장소 이야기에 언급된 백록담이 매번 함께 걸림)
+  const byName = MYTHS.filter((m) => [m.id, m.name, m.deity, m.element].some((s) => s.includes(q)))
+  const hit = !q ? MYTHS : byName.length ? byName : MYTHS.filter((m) => m.story.includes(q))
   return hit.map(({ id, name, deity, element, story, lat, lng }) => ({ id, name, deity, element, story, lat, lng }))
 }
 
@@ -63,6 +65,7 @@ const SYSTEM = `너는 제주 신화·설화 안내자 '할망'이다. 말투는
 - 신화 장소의 날씨를 볼 땐 좌표를 get_myth_lore 로 먼저 얻어 쓴다. '제주시'·'서귀포시'처럼 도시 이름으로 물으면 그 도시 중심 좌표(제주시 33.4996,126.5312 / 서귀포시 33.2541,126.5601)로 get_weather 를 한 번만 부른다.
 - 주변 명소를 contentTypeId(예: 14 문화시설)로 좁혀 검색했는데 0건이면, 그 조건을 빼고 같은 좌표로 한 번 더 검색한다. 그래도 없을 때만 "결과가 없다"고 답한다.
 - 비·강풍이면 실내 대안을 제안한다.
+- 대화 기록에는 이전 턴의 도구 호출 내역이 남아 있지 않을 뿐, 이전 답변도 도구로 확인한 내용이다. 이전 답변이 도구 없이 나왔다거나 그래서 미안하다는 말은 하지 않는다. 이전 내용을 다시 확인해야 하면 말없이 도구를 다시 부른다.
 - 답은 한국어 6문장 이내, 마크다운 기호(**, #, - 목록)는 쓰지 않고 평범한 문장으로 쓴다.`
 
 export default async function handler(req, res) {
@@ -73,7 +76,6 @@ export default async function handler(req, res) {
   const { message, history = [] } = req.body ?? {}
   const messages = [...history.slice(-10), { role: 'user', content: message }] // 최근 10개만 보내 비용 절약
   const steps = []      // 화면에 "호출한 도구"를 보여주기 위한 기록
-  const focus = new Set() // 3D 지도에서 반짝일 신화 장소 id
 
   try {
     // ③ 에이전트 루프: 생각 → 도구 호출 → 결과 확인 → (반복) → 최종 답
@@ -82,7 +84,7 @@ export default async function handler(req, res) {
 
       if (r.stop_reason !== 'tool_use') {
         const answer = r.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n')
-        return res.status(200).json({ answer, steps, focus: [...focus] })
+        return res.status(200).json({ answer, steps })
       }
 
       messages.push({ role: 'assistant', content: r.content })
@@ -92,13 +94,12 @@ export default async function handler(req, res) {
         let result
         try { result = await runTool[block.name](block.input ?? {}) }
         catch (e) { result = { error: e.message } }
-        if (block.name === 'get_myth_lore' && Array.isArray(result)) result.forEach((m) => focus.add(m.id))
         steps.push({ tool: block.name, args: block.input, count: Array.isArray(result) ? result.length : 0, error: result?.error })
         results.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) })
       }
       messages.push({ role: 'user', content: results })
     }
-    res.status(200).json({ answer: '도구를 너무 많이 불러서 멈췄어요. 질문을 조금 좁혀 주세요.', steps, focus: [...focus] })
+    res.status(200).json({ answer: '도구를 너무 많이 불러서 멈췄어요. 질문을 조금 좁혀 주세요.', steps })
   } catch (e) {
     res.status(e.status ?? 500).json({ error: e.status === 429 ? '사용량이 많아요. 1분 뒤 다시 시도하세요.' : e.message })
   }

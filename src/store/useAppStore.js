@@ -146,21 +146,20 @@ export const useAppStore = create(
       // ⑥ 에이전트 대화 — 페이지를 옮겨도 남도록 store 에 두고, Supabase chat_messages 에 닉네임별로 저장
       messages: [], // { role, text, steps }
       chatLoading: false,
-      focus: [],    // 에이전트가 언급한 신화 장소 → 3D 지도에서 반짝임
       loadChat: async () => {
         if (!supabase) return
         const { data, error } = await supabase.from('chat_messages').select('role, text, steps')
           .eq('nickname', who(get)).order('id', { ascending: true }).limit(200)
         if (error) return isMissingTable(error) ? undefined : get().toast(error.message, 'bad')
         if (get().chatLoading) return // 답을 기다리는 중이면 화면의 대화를 덮어쓰지 않는다
-        set({ messages: data.map((m) => ({ role: m.role, text: m.text, steps: m.steps ?? [] })), focus: [] })
+        set({ messages: data.map((m) => ({ role: m.role, text: m.text, steps: m.steps ?? [] })) })
       },
       sendMessage: async (text) => {
         const history = get().messages.map((m) => ({ role: m.role, content: m.text }))
         set({ messages: [...get().messages, { role: 'user', text }], chatLoading: true })
         try {
-          const { answer, steps, focus } = await askAgent(text, history)
-          set({ messages: [...get().messages, { role: 'assistant', text: answer, steps }], focus })
+          const { answer, steps } = await askAgent(text, history)
+          set({ messages: [...get().messages, { role: 'assistant', text: answer, steps }] })
           // 질문과 답변을 한 번에 저장 (한 번의 insert 안에서는 배열 순서대로 id 가 매겨진다)
           if (supabase) {
             const rows = [
@@ -177,7 +176,7 @@ export const useAppStore = create(
         }
       },
       clearChat: async () => {
-        set({ messages: [], focus: [] })
+        set({ messages: [] })
         if (!supabase) return
         const { error } = await supabase.from('chat_messages').delete().eq('nickname', who(get))
         if (error && !isMissingTable(error)) get().toast(error.message, 'bad')

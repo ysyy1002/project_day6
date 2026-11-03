@@ -40,7 +40,7 @@ function Moon() {
 }
 
 // 신화 장소 하나 = 빛기둥 + 떠 있는 보석
-function Beacon({ site, selected, discovered, focused, onSelect }) {
+function Beacon({ site, selected, discovered, onSelect }) {
   const [x, z] = toWorld(site.lat, site.lng)
   const y = surfaceY(x, z)
   const gem = useRef()
@@ -50,9 +50,7 @@ function Beacon({ site, selected, discovered, focused, onSelect }) {
     const t = s.clock.elapsedTime
     gem.current.rotation.y += dt * (selected ? 2.4 : 0.9)
     gem.current.position.y = 1.25 + Math.sin(t * 1.6 + x) * 0.12
-    const pulse = focused ? 1 + ((t * 1.5) % 1) * 2.2 : selected ? 1.4 : 1
-    ring.current.scale.setScalar(pulse)
-    ring.current.material.opacity = focused ? 1 - ((t * 1.5) % 1) : 0.55
+    ring.current.scale.setScalar(selected ? 1.4 : 1)
   })
   return (
     <group position={[x, y, z]}>
@@ -211,7 +209,7 @@ function CameraRig({ selectedId, controls }) {
   return null
 }
 
-export default function Scene({ selectedId, onSelect, discovered, focus, weather, nearby }) {
+export default function Scene({ selectedId, onSelect, discovered, weather, nearby }) {
   const controls = useRef()
   const site = selectedId ? MYTH_BY_ID[selectedId] : null
   const sitePos = useMemo(() => {

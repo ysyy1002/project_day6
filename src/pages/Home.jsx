@@ -10,7 +10,6 @@ export default function Home() {
   const selectedId = useAppStore((s) => s.selectedId)
   const select = useAppStore((s) => s.select)
   const discovered = useAppStore((s) => s.discovered)
-  const focus = useAppStore((s) => s.focus)
   const data = useAppStore((s) => (s.selectedId ? s.siteData[s.selectedId] : null))
 
   // 선택한 장소의 TourAPI·국가유산 결과를 3D 마커로 바꿔 씬에 전달
@@ -25,7 +24,7 @@ export default function Home() {
   return (
     <main className="map-page">
       <Suspense fallback={<div className="loading-3d">신들의 섬을 일으키는 중…</div>}>
-        <Scene selectedId={selectedId} onSelect={select} discovered={discovered} focus={focus} weather={weather} nearby={nearby} />
+        <Scene selectedId={selectedId} onSelect={select} discovered={discovered} weather={weather} nearby={nearby} />
       </Suspense>
 
       {!selectedId && (

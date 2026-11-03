@@ -129,7 +129,6 @@ sequenceDiagram
 
 - 루프는 최대 6회까지 돌고, 도구 호출 내역(`steps`)을 답과 함께 돌려줘 화면에 **"호출한 도구"** 로 표시합니다.
 - 시스템 프롬프트로 **도구 결과에 없는 장소·사실은 지어내지 않도록** 제한하고, 신화는 이본이 많다는 점을 덧붙이게 했습니다.
-- 에이전트가 언급한 신화 장소 id(`focus`)를 3D 지도에 전달해 **그 장소들이 반짝입니다.**
 - 대화는 Zustand store에 있어서 다른 메뉴에 갔다 와도 유지되고, Supabase(`chat_messages`)에도 저장되어 새로고침하거나 다시 접속해도 이어집니다.
 
 코드: [`api/agent.js`](api/agent.js) · 화면: [`src/pages/Oracle.jsx`](src/pages/Oracle.jsx)
