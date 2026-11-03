@@ -77,7 +77,9 @@ export function heightAt(x, z) {
   const land = landValue(x, z)
   const base = smooth(-0.64, 1.5, land) * 0.9 // 해안선(land = 0)에서 h ≈ 0.2 → 정확히 해수면
   const r2 = (x - HX) ** 2 + (z - HZ) ** 2
-  const peak = 3.6 * Math.exp(-r2 / (2 * 2.1 ** 2)) * smooth(0, 1.2, land)
+  // 백록담: 꼭대기를 깎아 분화구를 만들고, 둘레에 낮은 능선(분화구 벽)을 세운다 (실제는 지름 ≈0.5km, 눈에 보이도록 과장)
+  const crater = -0.5 * Math.exp(-r2 / (2 * 0.3 ** 2)) + 0.2 * Math.exp(-((Math.sqrt(r2) - 0.55) ** 2) / (2 * 0.16 ** 2))
+  const peak = (3.6 * Math.exp(-r2 / (2 * 2.1 ** 2)) + crater) * smooth(0, 1.2, land)
   let bumps = 0
   for (const b of BUMPS) bumps += b.h * Math.exp(-((x - b.x) ** 2 + (z - b.z) ** 2) / b.s2)
   return base + peak + bumps * smooth(0.05, 0.4, base)
