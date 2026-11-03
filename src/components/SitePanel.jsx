@@ -34,7 +34,8 @@ function Item({ title, sub, image, onSave, saved }) {
         <b>{title}</b>
         <small>{sub}</small>
       </div>
-      <Button variant="link" className={`btn-star${saved ? ' on' : ''}`} onClick={onSave} aria-label="담기" title="여정에 담기">
+      <Button variant="link" className={`btn-star${saved ? ' on' : ''}`} onClick={onSave}
+        aria-label={saved ? '저장 해제' : '담기'} aria-pressed={saved} title={saved ? '저장 해제' : '여정에 담기'}>
         <i className={`bi ${saved ? 'bi-star-fill' : 'bi-star'}`} />
       </Button>
     </ListGroup.Item>
@@ -46,7 +47,7 @@ export default function SitePanel({ id }) {
   const data = useAppStore((s) => s.siteData[id])
   const discovered = useAppStore((s) => s.discovered.includes(id))
   const favorites = useAppStore((s) => s.favorites)
-  const { discover, addFavorite, select, loadSite } = useAppStore.getState()
+  const { discover, toggleFavorite, select, loadSite } = useAppStore.getState()
   const [tab, setTab] = useState('tour')
   const isSaved = (source, item_id) => favorites.some((f) => f.source === source && f.item_id === String(item_id))
   const ready = data && !data.loading
@@ -81,7 +82,7 @@ export default function SitePanel({ id }) {
                 {rows.map((p) => (
                   <Item key={p.id} title={p.title} image={p.image} saved={isSaved('tour', p.id)}
                     sub={`${p.addr ?? ''}${p.dist ? ` · ${(p.dist / 1000).toFixed(1)}km` : ''}`}
-                    onSave={() => addFavorite({ source: 'tour', id: p.id, title: p.title })} />
+                    onSave={() => toggleFavorite({ source: 'tour', id: p.id, title: p.title })} />
                 ))}
               </ListGroup>
             )}
@@ -93,7 +94,7 @@ export default function SitePanel({ id }) {
               <ListGroup variant="flush" className="items">
                 {rows.map((h) => (
                   <Item key={h.id} title={h.name} sub={`${h.kind ?? ''} · ${h.city ?? ''}`} saved={isSaved('heritage', h.id)}
-                    onSave={() => addFavorite({ source: 'heritage', id: h.id, title: h.name })} />
+                    onSave={() => toggleFavorite({ source: 'heritage', id: h.id, title: h.name })} />
                 ))}
               </ListGroup>
             )}

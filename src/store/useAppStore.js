@@ -10,6 +10,7 @@ const who = (get) => get().nickname || '익명'
 const settle = (r) => (r.status === 'fulfilled' ? { ok: true, data: r.value } : { ok: false, error: r.reason.message })
 // 테이블을 아직 만들지 않은 환경(SQL 미실행)에서도 앱이 오류 알림 없이 동작하도록 한다
 const isMissingTable = (e) => e?.code === 'PGRST205' || /schema cache/.test(e?.message ?? '')
+let favBusy = false // 즐겨찾기 담기/해제 처리 중 여부 (연속 클릭 방지)
 
 export const useAppStore = create(
   persist(
@@ -91,9 +92,22 @@ export const useAppStore = create(
       },
       removeFavorite: async (id) => {
         set({ favorites: get().favorites.filter((f) => f.id !== id) })
+        get().toast('저장을 해제했어요')
         if (!supabase) return
         const { error } = await supabase.from('favorites').delete().eq('id', id)
         if (error) get().toast(error.message, 'bad')
+      },
+      // 별 버튼 한 개로 담기 ↔ 해제. 연속으로 눌러도 중복 저장되지 않도록 처리 중에는 무시한다.
+      toggleFavorite: async (item) => {
+        if (favBusy) return
+        favBusy = true
+        try {
+          const saved = get().favorites.find((f) => f.source === item.source && f.item_id === String(item.id))
+          if (saved) await get().removeFavorite(saved.id)
+          else await get().addFavorite(item)
+        } finally {
+          favBusy = false
+        }
       },
 
       // ⑥ 에이전트 대화 — 페이지를 옮겨도 남도록 store 에 두고, Supabase chat_messages 에 닉네임별로 저장
