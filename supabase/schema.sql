@@ -44,7 +44,9 @@ create policy "favorites delete" on favorites   for delete using (true);
 
 drop policy if exists "discoveries read"   on discoveries;
 drop policy if exists "discoveries insert" on discoveries;
+drop policy if exists "discoveries delete" on discoveries;
 drop policy if exists "discoveries update" on discoveries;
+create policy "discoveries delete" on discoveries for delete using (true);   -- 도감 기록 해제(다시 눌러 지우기)에 필요
 create policy "discoveries read"   on discoveries for select using (true);
 create policy "discoveries insert" on discoveries for insert with check (true);
 create policy "discoveries update" on discoveries for update using (true);

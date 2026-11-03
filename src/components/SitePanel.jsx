@@ -47,7 +47,7 @@ export default function SitePanel({ id }) {
   const data = useAppStore((s) => s.siteData[id])
   const discovered = useAppStore((s) => s.discovered.includes(id))
   const favorites = useAppStore((s) => s.favorites)
-  const { discover, toggleFavorite, select, loadSite } = useAppStore.getState()
+  const { toggleDiscovery, toggleFavorite, select, loadSite } = useAppStore.getState()
   const [tab, setTab] = useState('tour')
   const isSaved = (source, item_id) => favorites.some((f) => f.source === source && f.item_id === String(item_id))
   const ready = data && !data.loading
@@ -60,8 +60,9 @@ export default function SitePanel({ id }) {
         <h2>{site.name}</h2>
         <p className="story">{site.story}</p>
         <div className="d-flex gap-2 flex-wrap">
-          <Button variant={discovered ? 'outline-light' : 'primary'} size="sm" disabled={discovered} onClick={() => discover(id)}>
-            <i className={`bi ${discovered ? 'bi-check2' : 'bi-journal-bookmark'} me-1`} />{discovered ? '도감에 기록됨' : '이야기 도감에 기록'}
+          <Button variant={discovered ? 'outline-light' : 'primary'} size="sm" aria-pressed={discovered}
+            title={discovered ? '다시 누르면 기록이 해제돼요' : '이야기 도감에 기록'} onClick={() => toggleDiscovery(id)}>
+            <i className={`bi ${discovered ? 'bi-check2' : 'bi-journal-bookmark'} me-1`} />{discovered ? '도감에 기록됨 · 해제' : '이야기 도감에 기록'}
           </Button>
           <Button variant="outline-light" size="sm" onClick={() => loadSite(id, true)}>
             <i className="bi bi-arrow-clockwise me-1" />데이터 새로고침

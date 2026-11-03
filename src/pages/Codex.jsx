@@ -7,7 +7,7 @@ import { useAppStore } from '../store/useAppStore'
 
 export default function Codex() {
   const discovered = useAppStore((s) => s.discovered)
-  const { discover, select } = useAppStore.getState()
+  const { toggleDiscovery, select } = useAppStore.getState()
   const navigate = useNavigate()
   const [open, setOpen] = useState(null)
 
@@ -35,8 +35,9 @@ export default function Codex() {
                   <div className="d-flex gap-3 flex-wrap">
                     <Button variant="link" size="sm" className="p-0" onClick={() => setOpen(isOpen ? null : m.id)}>{isOpen ? '접기' : '이야기 펼치기'}</Button>
                     <Button variant="link" size="sm" className="p-0" onClick={() => goMap(m.id)}>3D 지도에서 보기</Button>
-                    <Button variant="link" size="sm" className="p-0" disabled={done} onClick={() => discover(m.id)}>
-                      {done ? <><i className="bi bi-check2" /> 기록됨</> : '기록하기'}
+                    <Button variant="link" size="sm" className="p-0" aria-pressed={done}
+                      title={done ? '다시 누르면 기록이 해제돼요' : '이야기 도감에 기록'} onClick={() => toggleDiscovery(m.id)}>
+                      {done ? <><i className="bi bi-check2" /> 기록됨 · 해제</> : '기록하기'}
                     </Button>
                   </div>
                 </Card.Body>

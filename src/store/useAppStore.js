@@ -11,6 +11,7 @@ const settle = (r) => (r.status === 'fulfilled' ? { ok: true, data: r.value } : 
 // 테이블을 아직 만들지 않은 환경(SQL 미실행)에서도 앱이 오류 알림 없이 동작하도록 한다
 const isMissingTable = (e) => e?.code === 'PGRST205' || /schema cache/.test(e?.message ?? '')
 let favBusy = false // 즐겨찾기 담기/해제 처리 중 여부 (연속 클릭 방지)
+let discBusy = false // 도감 기록/해제 처리 중 여부 (연속 클릭 방지)
 
 export const useAppStore = create(
   persist(
@@ -63,6 +64,38 @@ export const useAppStore = create(
         const { error } = await supabase.from('discoveries')
           .upsert({ nickname: who(get), myth_id: mythId }, { onConflict: 'nickname,myth_id' })
         if (error) get().toast(error.message, 'bad')
+      },
+
+      // 도감 기록 해제: 화면에서 먼저 지우고 Supabase 행을 삭제한다.
+      // discoveries 표에 delete 정책이 없으면 RLS 때문에 "오류 없이 0행 삭제"가 되므로, 행이 아직 남아 있으면 되돌리고 알린다.
+      undiscover: async (mythId) => {
+        const before = get().discovered
+        if (!before.includes(mythId)) return
+        set({ discovered: before.filter((id) => id !== mythId) })
+        if (!supabase) return get().toast(`‘${MYTH_BY_ID[mythId].name}’ 기록을 해제했어요`)
+        const match = { nickname: who(get), myth_id: mythId }
+        const { data, error } = await supabase.from('discoveries').delete().match(match).select()
+        let failed = error?.message
+        if (!failed && !data?.length) {
+          const { data: still } = await supabase.from('discoveries').select('myth_id').match(match)
+          if (still?.length) failed = '해제하지 못했어요. Supabase 에 discoveries 삭제 권한(supabase/schema.sql)이 필요해요'
+        }
+        if (failed) {
+          set({ discovered: before }) // 저장소에 그대로 남아 있으니 화면도 되돌린다
+          return get().toast(failed, 'bad')
+        }
+        get().toast(`‘${MYTH_BY_ID[mythId].name}’ 기록을 해제했어요`)
+      },
+      // 버튼 한 개로 기록 ↔ 해제 (처리 중에는 연속 클릭을 무시)
+      toggleDiscovery: async (mythId) => {
+        if (discBusy) return
+        discBusy = true
+        try {
+          if (get().discovered.includes(mythId)) await get().undiscover(mythId)
+          else await get().discover(mythId)
+        } finally {
+          discBusy = false
+        }
       },
 
       // ⑤ 즐겨찾기 — Supabase favorites 테이블
